@@ -1,0 +1,56 @@
+variables:
+  serviceConnectionToAzure: service-connection-visual-studio-enterprise
+  appName: func-nakazax-prem-warmup-java
+  mavenCacheFolder: $(Pipeline.Workspace)/.m2/repository
+  mavenOpts: '-Dmaven.repo.local=$(mavenCacheFolder)'
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: BuildStage
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: Cache@2
+      displayName: Cache Maven local repo
+      inputs:
+        key: 'maven | "$(Agent.OS)" | **/pom.xml'
+        restoreKeys: |
+          maven | "$(Agent.OS)"
+          maven
+        path: $(mavenCacheFolder)
+
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        mavenOptions: '-Xmx3072m $(mavenOpts)'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.8'
+        jdkArchitectureOption: 'x64'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        goals: 'package'
+
+    - publish: $(system.defaultworkingdirectory)/target/azure-functions/azure-functions-premium-warmup-java
+      artifact: FunctionApp
+
+- stage: DeployStage
+  dependsOn: BuildStage
+  condition: succeeded()
+  jobs:
+  - deployment: DeployJob
+    environment: Production
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureFunctionApp@1
+            inputs:
+              azureSubscription: $(serviceConnectionToAzure)
+              appType: functionApp
+              appName: $(appName)
+              package: $(Pipeline.Workspace)/FunctionApp
