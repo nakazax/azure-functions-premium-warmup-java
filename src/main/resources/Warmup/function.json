@@ -1,0 +1,9 @@
+{
+  "scriptFile": "../azure-functions-premium-warmup-java-1.0-SNAPSHOT.jar",
+  "entryPoint": "com.functionp.Warmup.run",
+  "bindings": [ {
+    "type": "warmupTrigger",
+    "direction": "in",
+    "name": "Warmup"
+  } ]
+}
